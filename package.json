@@ -1,5 +1,5 @@
 {
-  "name": "react-native-expo-template-typescript",
+  "name": "ai-skin-care",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
@@ -20,9 +20,11 @@
     "mobile"
   ],
   "dependencies": {
+    "@expo-google-fonts/titillium-web": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.2.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/native-stack": "^7.3.28",
     "@tanstack/react-query": "^5.90.3",
@@ -30,10 +32,13 @@
     "expo": "~54.0.13",
     "expo-blur": "~15.0.7",
     "expo-constants": "~18.0.9",
+    "expo-image-manipulator": "~14.0.7",
+    "expo-image-picker": "~17.0.8",
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.8",
     "expo-router": "~6.0.12",
     "expo-status-bar": "~3.0.8",
+    "firebase": "^12.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.65.0",

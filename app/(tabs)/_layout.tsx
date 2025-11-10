@@ -73,11 +73,10 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="notifications"
                 options={{
-                    title: 'Notifications',
+                    title: 'Weather Alerts',
                     tabBarIcon: ({ color, size }) => (
-                        <FontAwesome name="bell-o" size={size} color={color} />
+                        <FontAwesome name="sun-o" size={size} color={color} />
                     ),
-                    tabBarBadge: 3
                 }}
             />
             <Tabs.Screen

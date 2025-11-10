@@ -1,16 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { Appearance, AppState } from 'react-native';
 import { lightColors, darkColors, ColorScheme } from './colors';
 import { spacing } from './spacing';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
     colors: ColorScheme;
     spacing: typeof spacing;
     mode: ThemeMode;
     isDark: boolean;
+    resolvedMode: 'light' | 'dark';
     setMode: (mode: ThemeMode) => void;
 }
 
@@ -24,9 +25,9 @@ interface ThemeProviderProps {
 const THEME_STORAGE_KEY = '@app_theme_mode';
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-    const systemColorScheme = useColorScheme();
     const [mode, setMode] = useState<ThemeMode>('system');
     const [isLoading, setIsLoading] = useState(true);
+    const [systemMode, setSystemMode] = useState<'light' | 'dark'>(() => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'));
 
     // Load saved theme on mount
     useEffect(() => {
@@ -46,6 +47,30 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         }
     };
 
+    useEffect(() => {
+        const appearanceListener = Appearance.addChangeListener(({ colorScheme }) => {
+            setSystemMode(colorScheme === 'dark' ? 'dark' : 'light');
+        });
+
+        return () => {
+            appearanceListener.remove();
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleAppStateChange = (state: string) => {
+            if (state === 'active') {
+                setSystemMode(Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
+
     const handleSetMode = async (newMode: ThemeMode) => {
         try {
             setMode(newMode);
@@ -55,11 +80,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         }
     };
 
-    const isDark = mode === 'system'
-        ? systemColorScheme === 'dark'
-        : mode === 'dark';
+    const resolvedMode: 'light' | 'dark' = mode === 'system' ? systemMode : mode;
 
-    const colors = isDark ? darkColors : lightColors;
+    const isDark = resolvedMode === 'dark';
+
+    const colors = useMemo(() => (isDark ? darkColors : lightColors), [isDark]);
 
     if (isLoading) {
         return null; // Or a loading screen
@@ -70,6 +95,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         spacing,
         mode,
         isDark,
+        resolvedMode,
         setMode: handleSetMode,
     };
 

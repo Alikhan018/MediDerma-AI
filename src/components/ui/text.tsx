@@ -45,12 +45,33 @@ export const Text: React.FC<CustomTextProps> = ({
         warning: colors.warning,
     };
 
+    const fontFamilyMap = {
+        regular: 'TitilliumWeb_400Regular',
+        semiBold: 'TitilliumWeb_600SemiBold',
+        bold: 'TitilliumWeb_700Bold',
+    };
+
+    const defaultWeight = variantStyles[variant].fontWeight;
+    const defaultFamily =
+        defaultWeight === '700'
+            ? fontFamilyMap.bold
+            : defaultWeight === '600' || defaultWeight === '500'
+            ? fontFamilyMap.semiBold
+            : fontFamilyMap.regular;
+
+    const computedFamily = bold
+        ? fontFamilyMap.bold
+        : semiBold
+        ? fontFamilyMap.semiBold
+        : defaultFamily;
+
     const styles = StyleSheet.create({
         text: {
             ...variantStyles[variant],
             color: colorMap[color],
             textAlign: center ? 'center' : 'left',
             fontWeight: bold ? '700' : semiBold ? '600' : variantStyles[variant].fontWeight,
+            fontFamily: computedFamily,
         },
     });
 

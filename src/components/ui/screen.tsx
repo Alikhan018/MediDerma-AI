@@ -10,6 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
 
+import { OrbBackground } from './orb-background';
+
 interface ScreenProps {
     children: React.ReactNode;
     scrollable?: boolean;
@@ -34,9 +36,13 @@ export const Screen: React.FC<ScreenProps> = ({
     const defaultStatusBarStyle = statusBarStyle || (isDark ? 'light' : 'dark');
 
     const styles = StyleSheet.create({
-        safeArea: {
+        root: {
             flex: 1,
             backgroundColor: colors.background,
+        },
+        safeArea: {
+            flex: 1,
+            backgroundColor: 'transparent',
         },
         container: {
             flex: 1,
@@ -53,11 +59,13 @@ export const Screen: React.FC<ScreenProps> = ({
     );
 
     return (
-        <>
+        <View style={styles.root}>
             <StatusBar
                 barStyle={defaultStatusBarStyle === 'light' ? 'light-content' : 'dark-content'}
-                backgroundColor={colors.background}
+                backgroundColor="transparent"
+                translucent
             />
+            <OrbBackground />
             <SafeAreaView style={styles.safeArea} edges={edges}>
                 {scrollable ? (
                     <ScrollView
@@ -72,6 +80,6 @@ export const Screen: React.FC<ScreenProps> = ({
                     content
                 )}
             </SafeAreaView>
-        </>
+        </View>
     );
 };

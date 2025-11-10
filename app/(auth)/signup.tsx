@@ -1,18 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Animated, ImageBackground } from 'react-native';
+import { Animated, StyleSheet, TouchableOpacity, View, useWindowDimensions, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import { useTheme } from '@theme/index';
-import { TouchableOpacity } from 'react-native';
-import { Screen, Text } from '@/components/ui';
 import { useForm, Controller } from 'react-hook-form';
-import { Button } from '@/components/ui';
-import { Input } from '@/components/ui';
-import { FontAwesome } from '@expo/vector-icons';
-import { AuthService } from '@/services/auth.service';
 
-const { width, height } = Dimensions.get('window');
+import { Screen, Text, Button, Input } from '@/components/ui';
+import { useTheme } from '@/theme/index';
+import { useAuth } from '@/hooks/useAuth';
+import { features, APP_NAME } from '@/constants/landing-page';
 
 type RegisterFormData = {
     username: string;
@@ -21,9 +15,12 @@ type RegisterFormData = {
     confirmPassword: string;
 };
 
-export default function RegisterScreen() {
-    const { colors, spacing, isDark } = useTheme();
+export default function SignupScreen() {
+    const { colors, spacing } = useTheme();
+    const { signUpWithEmail } = useAuth();
     const router = useRouter();
+    const { height } = useWindowDimensions();
+    const isCompact = height < 700;
 
     // Form setup with react-hook-form
     const { control, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<RegisterFormData>({
@@ -61,105 +58,83 @@ export default function RegisterScreen() {
     // Form submission handler
     const onSubmit = async (data: RegisterFormData) => {
         try {
-            const registerData = { username: data.username, email: data.email, password: data.password };
-            const as = new AuthService();
-            const response = await as.register(registerData);
-            if (response.message === 'OTP sent to email') {
-                router.push({
-                    pathname: '/(auth)/verify-otp',
-                    params: { email: data.email }
-                });
-            } else {
-                throw "OTP not sent";
-            }
-        } catch (error) {
+            await signUpWithEmail({
+                email: data.email,
+                password: data.password,
+                displayName: data.username,
+            });
+            router.replace('/(tabs)/');
+        } catch (error: any) {
             console.error('Registration error:', error);
+            const message =
+                error?.code === 'auth/email-already-in-use'
+                    ? 'This email is already registered.'
+                    : error?.message || 'Unable to create your account right now. Please try again.';
+            Alert.alert('Sign Up Failed', message);
         }
     };
 
     const styles = StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        backgroundImage: {
-            flex: 1,
-            justifyContent: 'center',
-        },
-        gradientOverlay: {
-            ...StyleSheet.absoluteFillObject,
-            opacity: 0.85,
-        },
         content: {
             flex: 1,
+            paddingHorizontal: isCompact ? spacing.lg : spacing.xl,
+            paddingVertical: isCompact ? spacing.lg : spacing.xl,
             justifyContent: 'center',
-            alignItems: 'center',
-            padding: spacing.lg,
         },
-        formContainer: {
-            width: '100%',
-            maxWidth: 400,
-            backgroundColor: isDark ? colors.surface + 'CC' : '#FFFFFFCC',
-            borderRadius: 16,
-            padding: spacing.lg,
-            borderWidth: 1,
-            borderColor: isDark ? colors.border : colors.primary + '20',
+        formCard: {
+            backgroundColor: colors.surface,
+            borderRadius: 28,
+            padding: spacing.xl,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
             shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 5,
+            shadowOffset: { width: 0, height: 18 },
+            shadowOpacity: 0.22,
+            shadowRadius: 28,
+            elevation: 6,
+            width: '100%',
+            maxWidth: 480,
+            alignSelf: 'center',
+            gap: spacing.lg,
+        },
+        cardHeader: {
+            alignItems: 'center',
+            gap: spacing.xs,
         },
         title: {
-            fontSize: 24,
-            fontWeight: '800',
+            fontSize: 26,
+            fontWeight: '700',
             color: colors.text,
             textAlign: 'center',
-            marginBottom: spacing.sm,
         },
         subtitle: {
             fontSize: 14,
             color: colors.textSecondary,
             textAlign: 'center',
-            marginBottom: spacing.lg,
         },
-        divider: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginVertical: spacing.sm,
+        formFields: {
+            gap: spacing.md,
         },
-        dividerLine: {
-            flex: 1,
-            height: 1,
-            backgroundColor: colors.border,
-        },
-        dividerText: {
+        passwordHint: {
             fontSize: 12,
             color: colors.textSecondary,
-            paddingHorizontal: spacing.sm,
+            textAlign: 'left',
+        },
+        termsText: {
+            fontSize: 12,
+            color: colors.textSecondary,
+            textAlign: 'center',
+        },
+        termsLink: {
+            color: colors.primary,
+            fontSize: 12,
             fontWeight: '600',
-        },
-        socialContainer: {
-            flexDirection: 'row',
-            justifyContent: 'center',
-            marginBottom: spacing.sm,
-        },
-        socialButton: {
-            backgroundColor: colors.surface,
-            borderRadius: 12,
-            padding: spacing.md,
-            marginHorizontal: spacing.sm,
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 60,
-            height: 60,
-            borderWidth: 1,
-            borderColor: colors.border,
         },
         footer: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: spacing.xs,
         },
         footerText: {
             fontSize: 12,
@@ -169,48 +144,41 @@ export default function RegisterScreen() {
             fontSize: 12,
             color: colors.primary,
             fontWeight: '600',
-            marginLeft: spacing.xs,
         },
     });
 
     return (
         <Screen>
-            <ImageBackground
-                source={require('../../assets/background-landing.jpg')} // Replace with actual asset
-                style={styles.backgroundImage}
-                resizeMode="cover"
+            <Animated.View
+                style={[
+                    styles.content,
+                    {
+                        flex: 1,
+                        opacity: fadeAnim,
+                        transform: [{ scale: scaleAnim }],
+                    },
+                ]}
             >
-                <LinearGradient
-                    colors={isDark ? ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)'] : ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.3)']}
-                    style={styles.gradientOverlay}
-                />
-                <BlurView intensity={20} style={StyleSheet.absoluteFill} tint={isDark ? 'dark' : 'light'} />
-                <Animated.View
-                    style={[
-                        styles.content,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ scale: scaleAnim }],
-                        },
-                    ]}
-                >
-                    <View style={styles.formContainer}>
+                <View style={styles.formCard}>
+                    <View style={styles.cardHeader}>
                         <Text style={styles.title}>Create Your Account</Text>
-                        <Text style={styles.subtitle}>Join App to manage your profiles</Text>
+                        <Text style={styles.subtitle}>Join {APP_NAME} and unlock precision dermatology workflows</Text>
+                    </View>
 
+                    <View style={styles.formFields}>
                         <Controller
                             control={control}
                             name="username"
                             rules={{
-                                required: 'username is required',
+                                required: 'Username is required',
                             }}
                             render={({ field: { onChange, value } }) => (
                                 <Input
-                                    label="Username"
+                                    label="Full Name"
                                     value={value}
                                     onChangeText={onChange}
                                     error={errors.username?.message}
-                                    autoCapitalize="none"
+                                    autoCapitalize="words"
                                 />
                             )}
                         />
@@ -226,7 +194,7 @@ export default function RegisterScreen() {
                             }}
                             render={({ field: { onChange, value } }) => (
                                 <Input
-                                    label="Email"
+                                    label="Work Email"
                                     value={value}
                                     onChangeText={onChange}
                                     error={errors.email?.message}
@@ -253,6 +221,7 @@ export default function RegisterScreen() {
                                 />
                             )}
                         />
+                        <Text style={styles.passwordHint}>Minimum 6 characters with letters and numbers.</Text>
 
                         <Controller
                             control={control}
@@ -274,37 +243,28 @@ export default function RegisterScreen() {
                         />
 
                         <Button
-                            title={isSubmitting ? 'Signing Up...' : 'Sign Up'}
+                            title={isSubmitting ? 'Creating Account...' : 'Create Account'}
                             onPress={handleSubmit(onSubmit)}
                             loading={isSubmitting}
                             disabled={isSubmitting}
                             variant="primary"
                         />
 
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>OR</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <View style={styles.socialContainer}>
-                            <TouchableOpacity style={styles.socialButton} onPress={() => { /* Google auth */ }}>
-                                <FontAwesome name="google" size={24} color="#DB4437" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.socialButton} onPress={() => { /* Apple auth */ }}>
-                                <FontAwesome name="apple" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>Already have an account?</Text>
-                            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-                                <Text style={styles.footerLink}>Sign In</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <Text style={styles.termsText}>
+                            By continuing you agree to our{' '}
+                            <Text style={styles.termsLink}>Terms</Text> and{' '}
+                            <Text style={styles.termsLink}>Privacy Policy</Text>.
+                        </Text>
                     </View>
-                </Animated.View>
-            </ImageBackground>
+
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Already have an account?</Text>
+                        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+                            <Text style={styles.footerLink}>Sign In</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Animated.View>
         </Screen>
     );
 }

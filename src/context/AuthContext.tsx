@@ -1,130 +1,206 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { config } from '@/environment/environment';
 
-interface User {
-    id: string;
-    email: string;
-    firstName?: string;
-    lastName?: string;
+import { config } from '@/environment/environment';
+import { FirebaseAuthService } from '@/services/firebase/auth.firebase';
+import { FirebaseServiceError } from '@/services/firebase/base.firebase';
+import type { User as FirebaseUser } from 'firebase/auth';
+import { FirebaseFirestoreService } from '@/services/firebase/firestore.firebase';
+
+interface AuthUser {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
     emailVerified: boolean;
-    profileComplete: boolean;
 }
 
 interface AuthContextType {
-    user: User | null;
-    token: string | null;
+    user: AuthUser | null;
     isLoading: boolean;
     isAuthenticated: boolean;
-    signIn: (token: string, user: User) => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<AuthUser>;
+    signUpWithEmail: (params: { email: string; password: string; displayName?: string }) => Promise<AuthUser>;
+    signInWithGoogle: () => Promise<AuthUser>;
     signOut: () => Promise<void>;
-    updateUser: (user: Partial<User>) => void;
+    updateDisplayName: (displayName: string) => Promise<void>;
+    deleteAccount: () => Promise<void>;
+    sendPasswordReset: (email: string) => Promise<void>;
+    refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Storage keys
 const TOKEN_KEY = config.authTokenKey || '@auth_token';
 const USER_KEY = config.authUserKey || '@auth_user';
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+function mapFirebaseUser(user: FirebaseUser): AuthUser {
+    return {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+    };
+}
 
+export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const segments = useSegments();
+    const authServiceRef = useRef<FirebaseAuthService>(new FirebaseAuthService());
+    const firestoreServiceRef = useRef<FirebaseFirestoreService>(new FirebaseFirestoreService());
+    const authService = authServiceRef.current;
+    const firestoreService = firestoreServiceRef.current;
 
-    // Load stored auth data on mount
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
     useEffect(() => {
-        loadStoredAuth();
-    }, []);
+        const unsubscribe = authService.onAuthStateChanged(async (firebaseUser) => {
+            if (firebaseUser) {
+                const mapped = mapFirebaseUser(firebaseUser);
+                setUser(mapped);
+                try {
+                    const token = await firebaseUser.getIdToken();
+                    await Promise.all([
+                        AsyncStorage.setItem(TOKEN_KEY, token),
+                        AsyncStorage.setItem(USER_KEY, JSON.stringify(mapped)),
+                    ]);
+                } catch (error) {
+                    console.error('Failed to persist Firebase auth state:', error);
+                }
+            } else {
+                setUser(null);
+                await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+            }
+            setIsLoading(false);
+        });
 
-    // Handle navigation based on auth state
+        return () => unsubscribe();
+    }, [authService]);
+
     useEffect(() => {
         if (isLoading) return;
 
         const inAuthGroup = segments[0] === '(auth)';
-        const inTabsGroup = segments[0] === '(tabs)';
+        const isLandingRoute =
+            segments.length === 0 ||
+            (segments.length === 1 && (segments[0] === 'index' || segments[0] === ''));
 
-        if (!user && !inAuthGroup) {
-            // Redirect to login if not authenticated
+        if (!user && !inAuthGroup && !isLandingRoute) {
             router.replace('/(auth)/login');
         } else if (user && inAuthGroup) {
-            // Redirect to tabs if authenticated and in auth screens
             router.replace('/(tabs)/');
         }
-    }, [user, segments, isLoading]);
+    }, [user, segments, isLoading, router]);
 
-    const loadStoredAuth = async () => {
+    const ensureAuthUser = (firebaseUser: FirebaseUser | null, context: string): AuthUser => {
+        if (!firebaseUser) {
+            throw new FirebaseServiceError('Authentication failed. No user returned.', 'auth/no-user', context);
+        }
+        return mapFirebaseUser(firebaseUser);
+    };
+
+    const signInWithEmail = async (email: string, password: string): Promise<AuthUser> => {
+        setIsLoading(true);
         try {
-            const [storedToken, storedUser] = await Promise.all([
-                AsyncStorage.getItem(TOKEN_KEY),
-                AsyncStorage.getItem(USER_KEY),
-            ]);
-
-            if (storedToken && storedUser) {
-                setToken(storedToken);
-                setUser(JSON.parse(storedUser));
-            }
-        } catch (error) {
-            console.error('Failed to load auth data:', error);
+            const firebaseUser = await authService.signInWithEmail(email, password);
+            return ensureAuthUser(firebaseUser, 'signInWithEmail');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const signIn = async (authToken: string, userData: User) => {
+    const signUpWithEmail = async (params: { email: string; password: string; displayName?: string }): Promise<AuthUser> => {
+        setIsLoading(true);
         try {
-            await Promise.all([
-                AsyncStorage.setItem(TOKEN_KEY, authToken),
-                AsyncStorage.setItem(USER_KEY, JSON.stringify(userData)),
-            ]);
-            setToken(authToken);
-            setUser(userData);
-        } catch (error) {
-            console.error('Failed to save auth data:', error);
-            throw error;
+            const firebaseUser = await authService.signUpWithEmail(params);
+            return ensureAuthUser(firebaseUser, 'signUpWithEmail');
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const signOut = async () => {
+    const signInWithGoogle = async (): Promise<AuthUser> => {
+        setIsLoading(true);
         try {
-            await Promise.all([
-                AsyncStorage.removeItem(TOKEN_KEY),
-                AsyncStorage.removeItem(USER_KEY),
-            ]);
-            setToken(null);
+            const firebaseUser = await authService.signInWithGoogle();
+            return ensureAuthUser(firebaseUser, 'signInWithGoogle');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const signOut = async (): Promise<void> => {
+        setIsLoading(true);
+        try {
+            await authService.signOut();
+            await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
             setUser(null);
-            router.replace('/(auth)/login');
-        } catch (error) {
-            console.error('Failed to clear auth data:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const updateUser = (userData: Partial<User>) => {
-        if (user) {
-            const updatedUser = { ...user, ...userData };
+    const updateDisplayName = async (displayName: string): Promise<void> => {
+        if (!user) {
+            throw new FirebaseServiceError('No authenticated user found.', 'auth/no-user', 'updateDisplayName');
+        }
+        setIsLoading(true);
+        try {
+            await authService.updateDisplayName(displayName);
+            await firestoreService.updateUserDocument(user.uid, { name: displayName });
+
+            const updatedUser: AuthUser = { ...user, displayName };
             setUser(updatedUser);
-            AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+            await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    return (
-        <AuthContext.Provider
-            value={{
-                user,
-                token,
-                isLoading,
-                isAuthenticated: !!user,
-                signIn,
-                signOut,
-                updateUser,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
+    const deleteAccount = async (): Promise<void> => {
+        setIsLoading(true);
+        try {
+            await authService.deleteAccount();
+            await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+            setUser(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const sendPasswordReset = async (email: string): Promise<void> => {
+        await authService.sendPasswordReset(email);
+    };
+
+    const refreshUser = async (): Promise<void> => {
+        const firebaseUser = await authService.reloadCurrentUser();
+        if (firebaseUser) {
+            const mapped = mapFirebaseUser(firebaseUser);
+            setUser(mapped);
+            await AsyncStorage.setItem(USER_KEY, JSON.stringify(mapped));
+        }
+    };
+
+    const value = useMemo<AuthContextType>(
+        () => ({
+            user,
+            isLoading,
+            isAuthenticated: !!user,
+            signInWithEmail,
+            signUpWithEmail,
+            signInWithGoogle,
+            signOut,
+            updateDisplayName,
+            deleteAccount,
+            sendPasswordReset,
+            refreshUser,
+        }),
+        [user, isLoading]
     );
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

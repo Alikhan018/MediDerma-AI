@@ -27,28 +27,9 @@ export default function AuthLayout() {
 
             {/* Register Screen */}
             <Stack.Screen
-                name="register"
+                name="signup"
                 options={{
                     title: 'Create Account',
-                }}
-            />
-
-            {/* Forgot Password */}
-            <Stack.Screen
-                name="forgot-password"
-                options={{
-                    title: 'Reset Password',
-                    presentation: 'modal',
-                }}
-            />
-
-            {/* OTP Verification */}
-            <Stack.Screen
-                name="verify-otp"
-                options={{
-                    title: 'Verify Code',
-                    // Prevent going back
-                    gestureEnabled: false,
                 }}
             />
         </Stack>

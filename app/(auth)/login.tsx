@@ -1,18 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Animated, ImageBackground, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Animated, TouchableOpacity, Alert, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useTheme } from '@theme/index';
 import { Screen, Text } from '@/components/ui';
 import { useForm, Controller } from 'react-hook-form';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { FontAwesome } from '@expo/vector-icons';
-import { AuthService } from '@/services/auth.service';
 import { useAuth } from '@/hooks/useAuth';
-
-const { width, height } = Dimensions.get('window');
+import { features } from '@/constants/landing-page';
 
 type LoginFormData = {
     email: string;
@@ -20,12 +16,15 @@ type LoginFormData = {
 };
 
 export default function LoginScreen() {
-    const { colors, spacing, isDark } = useTheme();
-    const { signIn } = useAuth();
+    const { colors, spacing } = useTheme();
+    const { signInWithEmail, sendPasswordReset } = useAuth();
     const router = useRouter();
+    const { height } = useWindowDimensions();
+    const isCompact = height < 700;
+    const featureHighlights = features.slice(0, 3);
 
     // Form setup with react-hook-form
-    const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
+    const { control, handleSubmit, getValues, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
         defaultValues: {
             email: '',
             password: '',
@@ -54,84 +53,70 @@ export default function LoginScreen() {
 
     // Form submission handler
     // In your login screen component
-    const onSubmit = async (data: LoginFormData) => {
+    const onSubmit = async (formData: LoginFormData) => {
         try {
-            const as = new AuthService();
-            const res = await as.login(data);
-            await signIn(res.token, res.user);
-            router.push('/(tabs)/');
+            await signInWithEmail(formData.email, formData.password);
+            router.replace('/(tabs)/');
         } catch (error: any) {
             console.error('Login error:', error);
-            console.log('Error response:', error.response);
-            console.log('Error data:', error.response?.data);
-
-            const errorMessage = error.response?.data?.error || error.response?.data?.message;
-
-            if (error.response?.status === 400 && errorMessage === 'Profile incomplete') {
-                console.log('Profile incomplete - redirecting to complete profile');
-                router.push({
-                    pathname: '/(auth)/complete-profile',
-                    params: {
-                        email: data.email,
-                        fromLogin: 'true'
-                    }
-                });
-                return;
-            }
-
-            Alert.alert(
-                'Login Failed',
-                errorMessage || 'Invalid email or password',
-                [{ text: 'OK' }]
-            );
+            const message =
+                error?.code === 'auth/invalid-credential'
+                    ? 'Invalid email or password'
+                    : error?.message || 'Unable to sign in right now. Please try again.';
+            Alert.alert('Login Failed', message, [{ text: 'OK' }]);
         }
     };
 
     const styles = StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
-        backgroundImage: {
-            flex: 1,
-            justifyContent: 'center',
-        },
-        gradientOverlay: {
-            ...StyleSheet.absoluteFillObject,
-            opacity: 0.85,
-        },
         content: {
             flex: 1,
+            paddingHorizontal: isCompact ? spacing.lg : spacing.xl,
+            paddingVertical: isCompact ? spacing.lg : spacing.xl,
             justifyContent: 'center',
-            alignItems: 'center',
-            padding: spacing.lg,
         },
-        formContainer: {
-            width: '100%',
-            maxWidth: 400,
-            backgroundColor: isDark ? colors.surface + 'CC' : '#FFFFFFCC',
-            borderRadius: 16,
-            padding: spacing.lg,
-            borderWidth: 1,
-            borderColor: isDark ? colors.border : colors.primary + '20',
+        formCard: {
+            backgroundColor: colors.surface,
+            borderRadius: 28,
+            padding: spacing.xl,
             shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 5,
+            shadowOffset: { width: 0, height: 18 },
+            shadowOpacity: 0.22,
+            shadowRadius: 28,
+            elevation: 6,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+            width: '100%',
+            maxWidth: 440,
+            alignSelf: 'center',
+            gap: spacing.lg,
+        },
+        cardHeader: {
+            alignItems: 'center',
+            gap: spacing.xs,
         },
         title: {
-            fontSize: 24,
-            fontWeight: '800',
+            fontSize: 26,
+            fontWeight: '700',
             color: colors.text,
             textAlign: 'center',
-            marginBottom: spacing.sm,
         },
         subtitle: {
             fontSize: 14,
             color: colors.textSecondary,
             textAlign: 'center',
-            marginBottom: spacing.lg,
+        },
+        formFields: {
+            gap: spacing.md,
+        },
+        auxiliaryRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+        },
+        linkButton: {
+            color: colors.primary,
+            fontWeight: '600',
+            fontSize: 12,
         },
         divider: {
             flexDirection: 'row',
@@ -149,27 +134,11 @@ export default function LoginScreen() {
             paddingHorizontal: spacing.sm,
             fontWeight: '600',
         },
-        socialContainer: {
-            flexDirection: 'row',
-            justifyContent: 'center',
-            marginBottom: spacing.sm,
-        },
-        socialButton: {
-            backgroundColor: colors.surface,
-            borderRadius: 12,
-            padding: spacing.md,
-            marginHorizontal: spacing.sm,
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 60,
-            height: 60,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
         footer: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: spacing.xs,
         },
         footerText: {
             fontSize: 12,
@@ -179,35 +148,28 @@ export default function LoginScreen() {
             fontSize: 12,
             color: colors.primary,
             fontWeight: '600',
-            marginLeft: spacing.xs,
         },
     });
 
     return (
         <Screen>
-            <ImageBackground
-                source={{ uri: 'https://example.com/solar-background.jpg' }} // Replace with actual asset
-                style={styles.backgroundImage}
-                resizeMode="cover"
+            <Animated.View
+                style={[
+                    styles.content,
+                    {
+                        flex: 1,
+                        opacity: fadeAnim,
+                        transform: [{ scale: scaleAnim }],
+                    },
+                ]}
             >
-                <LinearGradient
-                    colors={isDark ? ['rgba(0,0,0,0.7)', 'rgba(0,0,0,0.3)'] : ['rgba(255,255,255,0.7)', 'rgba(255,255,255,0.3)']}
-                    style={styles.gradientOverlay}
-                />
-                <BlurView intensity={20} style={StyleSheet.absoluteFill} tint={isDark ? 'dark' : 'light'} />
-                <Animated.View
-                    style={[
-                        styles.content,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ scale: scaleAnim }],
-                        },
-                    ]}
-                >
-                    <View style={styles.formContainer}>
+                <View style={styles.formCard}>
+                    <View style={styles.cardHeader}>
                         <Text style={styles.title}>Welcome Back</Text>
-                        <Text style={styles.subtitle}>Sign in to manage your profiles</Text>
+                        <Text style={styles.subtitle}>Access your dermatology intelligence dashboard</Text>
+                    </View>
 
+                    <View style={styles.formFields}>
                         <Controller
                             control={control}
                             name="email"
@@ -248,6 +210,31 @@ export default function LoginScreen() {
                             )}
                         />
 
+                        <View style={styles.auxiliaryRow}>
+                            <Text style={{ fontSize: 12, color: colors.textSecondary }}>Trouble signing in?</Text>
+                            <TouchableOpacity
+                                onPress={async () => {
+                                    const email = getValues('email');
+                                    if (!email) {
+                                        Alert.alert('Reset Password', 'Enter your email address above to reset your password.');
+                                        return;
+                                    }
+                                    try {
+                                        await sendPasswordReset(email);
+                                        Alert.alert('Reset Email Sent', 'Check your inbox for password reset instructions.');
+                                    } catch (error: any) {
+                                        const message =
+                                            error?.code === 'auth/user-not-found'
+                                                ? 'No account found with that email.'
+                                                : 'Unable to send reset email right now. Please try again.';
+                                        Alert.alert('Reset Failed', message);
+                                    }
+                                }}
+                            >
+                                <Text style={styles.linkButton}>Forgot password?</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         <Button
                             title={isSubmitting ? 'Signing In...' : 'Sign In'}
                             onPress={handleSubmit(onSubmit)}
@@ -255,31 +242,16 @@ export default function LoginScreen() {
                             disabled={isSubmitting}
                             variant="primary"
                         />
-
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>OR</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <View style={styles.socialContainer}>
-                            <TouchableOpacity style={styles.socialButton} onPress={() => { /* Google auth */ }}>
-                                <FontAwesome name="google" size={24} color="#DB4437" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.socialButton} onPress={() => { /* Apple auth */ }}>
-                                <FontAwesome name="apple" size={24} color={colors.text} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.footer}>
-                            <Text style={styles.footerText}>Don't have an account?</Text>
-                            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-                                <Text style={styles.footerLink}>Sign Up</Text>
-                            </TouchableOpacity>
-                        </View>
                     </View>
-                </Animated.View>
-            </ImageBackground>
+
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Don&apos;t have an account?</Text>
+                        <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+                            <Text style={styles.footerLink}>Create one</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Animated.View>
         </Screen>
     );
 }

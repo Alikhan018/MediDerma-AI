@@ -7,6 +7,7 @@ export { Card } from './card';
 export { ErrorMessage } from './error-message';
 export { Spacer } from './spacer';
 export { IconButton } from './icon-button';
+export { OrbBackground } from './orb-background';
 
 // Type exports
 export type { TextVariant, TextColor } from './text';

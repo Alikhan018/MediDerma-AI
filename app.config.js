@@ -1,13 +1,13 @@
 export default {
   expo: {
-    name: "react-native-expo-template-typescript",
-    slug: "react-native-expo-template-typescript",
+    name: "MediDerm AI",
+    slug: "medi-derm-ai",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
-    userInterfaceStyle: "light",
+    userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    scheme: "myapp",
+    scheme: "medi-derm-ai",
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",
@@ -15,8 +15,10 @@ export default {
     },
     ios: {
       supportsTablet: true,
+      userInterfaceStyle: "automatic",
     },
     android: {
+      userInterfaceStyle: "automatic",
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
@@ -31,9 +33,15 @@ export default {
 
     // Add your custom environment variables here:
     extra: {
-      API_URL: process.env.EXPO_PUBLIC_API_BASE_URL,
       AUTH_TOKEN_KEY: process.env.EXPO_PUBLIC_AUTH_TOKEN_KEY,
       AUTH_USER_KEY: process.env.EXPO_PUBLIC_AUTH_USER_KEY,
+      FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+      FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+      FIREBASE_STORAGE_BUCKET: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      FIREBASE_MESSAGING_SENDER_ID: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+      FIREBASE_MEASUREMENT_ID: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
     },
   },
 };

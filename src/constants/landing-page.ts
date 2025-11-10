@@ -1,10 +1,10 @@
 export const features = [
-    { icon: 'users', text: 'Grow Community' },
-    { icon: 'dollar', text: 'Gain Regular Rewards' },
-    { icon: 'product-hunt', text: 'All Max Products' },
-    { icon: 'bell', text: 'Real Time Alerts' },
+    { icon: 'users', text: 'Diagnose your skin disease with AI' },
+    { icon: 'heartbeat', text: 'Get personalized skin care recommendations' },
+    { icon: 'thermometer', text: 'Track your skin disease progress with AI' },
+    { icon: 'bell', text: 'Get real-time alerts' },
 ];
-export const APP_NAME = "Your App";
-export const APP_TITLE = `${APP_NAME} - Title`;
-export const APP_SUBTITLE = 'Monitor and Optimize Your Whatever goes here';
-export const APP_DESCRIPTION = 'Track your anything in real-time, get insights, and maximize efficiency with ease.';
+export const APP_NAME = "MediDerm AI";
+export const APP_TITLE = `AI Powered Dermatology`;
+export const APP_SUBTITLE = 'Upload your skin disease image and get the diagnosis in seconds';
+export const APP_DESCRIPTION = 'Skin Disease Detection got much more easier';
